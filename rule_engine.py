@@ -270,14 +270,16 @@ def rule_s6_short_term_high_freq(df):
 # ======================== 新增拆单规则（S3-S5：收货人/地址/项目维度） ========================
 
 def rule_s3_consigner_split(df):
-    """S3: 收货人维度拆单 → 80分（品类动态阈值）"""
-    if 'consigner_day_order_count' not in df.columns or 'consigner_day_amount' not in df.columns:
-        return df
-    if 'split_threshold' not in df.columns:
-        return df
-    mask = (df['consigner_day_order_count'] >= 2) & \
-           (df['consigner_day_amount'] > df['split_threshold']) & \
-           (df[COL_SUB_TTL] < df['split_threshold'])
+    """S3: 收货人维度拆单 → 80分（标记整组，不限于低于阈值的子单）"""
+    for c in ['consigner_day_order_count','consigner_day_amount','split_threshold',
+              '_consigner_valid','sku_name','submit_day']:
+        if c not in df.columns:
+            return df
+    group_keys = ['_consigner_valid', 'sku_name', 'submit_day']
+    df['_s3_flag'] = (df['consigner_day_order_count'] >= 2) & \
+                     (df['consigner_day_amount'] > df['split_threshold'])
+    mask = df.groupby(group_keys)['_s3_flag'].transform('any').fillna(False)
+    df.drop(columns=['_s3_flag'], inplace=True)
     df = _apply_score(df, mask, 'split', 80, 'S3:收货人维度拆单')
     if 'split_type' not in df.columns:
         df['split_type'] = ''
@@ -288,14 +290,16 @@ def rule_s3_consigner_split(df):
 
 
 def rule_s4_address_split(df):
-    """S4: 收货地址维度拆单 → 80分（品类动态阈值）"""
-    if 'address_day_order_count' not in df.columns or 'address_day_amount' not in df.columns:
-        return df
-    if 'split_threshold' not in df.columns:
-        return df
-    mask = (df['address_day_order_count'] >= 2) & \
-           (df['address_day_amount'] > df['split_threshold']) & \
-           (df[COL_SUB_TTL] < df['split_threshold'])
+    """S4: 收货地址维度拆单 → 80分（标记整组）"""
+    for c in ['address_day_order_count','address_day_amount','split_threshold',
+              '_address_valid','sku_name','submit_day']:
+        if c not in df.columns:
+            return df
+    group_keys = ['_address_valid', 'sku_name', 'submit_day']
+    df['_s4_flag'] = (df['address_day_order_count'] >= 2) & \
+                     (df['address_day_amount'] > df['split_threshold'])
+    mask = df.groupby(group_keys)['_s4_flag'].transform('any').fillna(False)
+    df.drop(columns=['_s4_flag'], inplace=True)
     df = _apply_score(df, mask, 'split', 80, 'S4:收货地址维度拆单')
     if 'split_type' not in df.columns:
         df['split_type'] = ''
@@ -306,18 +310,18 @@ def rule_s4_address_split(df):
 
 
 def rule_s5_project_split(df):
-    """S5: 项目维度拆单 → 85分（品类动态阈值，仅对有效项目名判）"""
-    if 'proj_day_order_count' not in df.columns or 'proj_day_amount' not in df.columns:
-        return df
-    if 'split_threshold' not in df.columns:
-        return df
-    if COL_PROJ_NAME not in df.columns:
-        return df
+    """S5: 项目维度拆单 → 85分（标记整组，仅对有效项目名判）"""
+    for c in ['proj_day_order_count','proj_day_amount','split_threshold',
+              '_proj_valid','sku_name','submit_day',COL_PROJ_NAME]:
+        if c not in df.columns:
+            return df
     has_proj = ~df[COL_PROJ_NAME].isin(['-', '', 'N/A', '无', None])
-    mask = has_proj & \
-           (df['proj_day_order_count'] >= 2) & \
-           (df['proj_day_amount'] > df['split_threshold']) & \
-           (df[COL_SUB_TTL] < df['split_threshold'])
+    group_keys = ['_proj_valid', 'sku_name', 'submit_day']
+    df['_s5_flag'] = has_proj & \
+                     (df['proj_day_order_count'] >= 2) & \
+                     (df['proj_day_amount'] > df['split_threshold'])
+    mask = df.groupby(group_keys)['_s5_flag'].transform('any').fillna(False)
+    df.drop(columns=['_s5_flag'], inplace=True)
     df = _apply_score(df, mask, 'split', 85, 'S5:项目维度拆单')
     if 'split_type' not in df.columns:
         df['split_type'] = ''

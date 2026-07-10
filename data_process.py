@@ -253,23 +253,41 @@ def feature_engineer(df):
         df['same_7d_order_count'] = df['_rownum'].clip(upper=10)  # 简化上限
         df['same_7d_merged_amount'] = df.groupby('_buyer_sup_sku')[COL_SUB_TTL].transform('sum')
 
-        # 新增：收货人维度拆单特征
-        consigner_key = [c for c in [COL_CONSIGNER, COL_SKU_NAME, 'submit_day'] if c in df.columns]
-        if len(consigner_key) >= 2:
-            df['consigner_day_order_count'] = df.groupby(consigner_key)[COL_ORDER_ID].transform('nunique')
-            df['consigner_day_amount'] = df.groupby(consigner_key)[COL_SUB_TTL].transform('sum')
+        # 新增：收货人维度拆单特征（过滤无效占位符）
+        if COL_CONSIGNER in df.columns:
+            invalid = ['-', '', '无', 'N/A', 'none', 'null', 'nan']
+            df['_consigner_valid'] = df[COL_CONSIGNER].astype(str)
+            mask = df['_consigner_valid'].isin(invalid)
+            df.loc[mask, '_consigner_valid'] = df.loc[mask, COL_ORDER_ID].astype(str)
+            consigner_key = ['_consigner_valid', COL_SKU_NAME, 'submit_day']
+            consigner_key = [c for c in consigner_key if c in df.columns]
+            if len(consigner_key) >= 2:
+                df['consigner_day_order_count'] = df.groupby(consigner_key)[COL_ORDER_ID].transform('nunique')
+                df['consigner_day_amount'] = df.groupby(consigner_key)[COL_SUB_TTL].transform('sum')
 
-        # 新增：收货地址维度拆单特征
-        address_key = [c for c in [COL_REC_ADDRESS, COL_SKU_NAME, 'submit_day'] if c in df.columns]
-        if len(address_key) >= 2:
-            df['address_day_order_count'] = df.groupby(address_key)[COL_ORDER_ID].transform('nunique')
-            df['address_day_amount'] = df.groupby(address_key)[COL_SUB_TTL].transform('sum')
+        # 新增：收货地址维度拆单特征（过滤无效占位符）
+        if COL_REC_ADDRESS in df.columns:
+            invalid = ['-', '', '无', 'N/A', 'none', 'null', 'nan']
+            df['_address_valid'] = df[COL_REC_ADDRESS].astype(str)
+            mask = df['_address_valid'].isin(invalid)
+            df.loc[mask, '_address_valid'] = df.loc[mask, COL_ORDER_ID].astype(str)
+            address_key = ['_address_valid', COL_SKU_NAME, 'submit_day']
+            address_key = [c for c in address_key if c in df.columns]
+            if len(address_key) >= 2:
+                df['address_day_order_count'] = df.groupby(address_key)[COL_ORDER_ID].transform('nunique')
+                df['address_day_amount'] = df.groupby(address_key)[COL_SUB_TTL].transform('sum')
 
-        # 新增：项目名称维度拆单特征（仅对有项目名的行生效）
-        proj_key = [c for c in [COL_PROJ_NAME, COL_SKU_NAME, 'submit_day'] if c in df.columns]
-        if len(proj_key) >= 2:
-            df['proj_day_order_count'] = df.groupby(proj_key)[COL_ORDER_ID].transform('nunique')
-            df['proj_day_amount'] = df.groupby(proj_key)[COL_SUB_TTL].transform('sum')
+        # 新增：项目名称维度拆单特征（过滤无效占位符）
+        if COL_PROJ_NAME in df.columns:
+            invalid = ['-', '', '无', 'N/A', 'none', 'null', 'nan']
+            df['_proj_valid'] = df[COL_PROJ_NAME].astype(str)
+            mask = df['_proj_valid'].isin(invalid)
+            df.loc[mask, '_proj_valid'] = df.loc[mask, COL_ORDER_ID].astype(str)
+            proj_key = ['_proj_valid', COL_SKU_NAME, 'submit_day']
+            proj_key = [c for c in proj_key if c in df.columns]
+            if len(proj_key) >= 2:
+                df['proj_day_order_count'] = df.groupby(proj_key)[COL_ORDER_ID].transform('nunique')
+                df['proj_day_amount'] = df.groupby(proj_key)[COL_SUB_TTL].transform('sum')
 
     # ======================== H. 稀疏度特征 ========================
     def _cv(x):
