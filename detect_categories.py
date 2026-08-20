@@ -34,11 +34,19 @@ from whitelist import load_whitelist, apply_whitelist
 
 
 def locate_data_file():
-    """定位 /ad_dataload 下的第一个 xlsx"""
-    files = sorted(glob.glob(os.path.join(DATA_DIR, "*.xlsx")))
-    if not files:
-        raise FileNotFoundError(f"未在 {DATA_DIR} 找到数据文件(.xlsx)")
-    return files[0]
+    """定位数据目录下的第一个数据文件（.xlsx 或 .csv）"""
+    for ext in ('*.xlsx', '*.csv'):
+        files = sorted(glob.glob(os.path.join(DATA_DIR, ext)))
+        if files:
+            return files[0]
+    raise FileNotFoundError(f"未在 {DATA_DIR} 找到数据文件(.xlsx/.csv)")
+
+
+def read_data(path):
+    """读取数据文件（按扩展名选择解析方式）"""
+    if path.endswith('.csv'):
+        return pd.read_csv(path)
+    return pd.read_excel(path)
 
 
 # 品类名 → 实际类目关键词映射（品类名可能是文件夹名/习惯叫法，与 four_cat 不完全一致）
@@ -139,7 +147,7 @@ def main():
     # 读取原始数据 + 全量特征工程（只做一次）
     raw_path = locate_data_file()
     print(f"读取数据: {raw_path}")
-    df_all = data_process(pd.read_excel(raw_path))
+    df_all = data_process(read_data(raw_path))
     df_all = feature_engineer(df_all)
 
     wl, wl_set = load_whitelist()
