@@ -1,0 +1,31 @@
+# 数据与结果文件（不上传）
+*.xlsx
+*.xls
+*.csv
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 虚拟环境/依赖
+.venv/
+venv/
+env/
+
+# 临时/测试输出
+test_output/
+类别专项检测/
+调试输出/
+
+# IDE/系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 无关插件目录（非本项目代码）
+plugins/
+
+# 日志
+*.log
