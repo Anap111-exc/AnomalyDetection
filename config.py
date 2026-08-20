@@ -8,9 +8,9 @@ import os
 import time
 
 # ==================== 路径（ti-one 平台，可用环境变量覆盖用于本地测试） ====================
-BASE_DIR = os.environ.get("ANOMALY_BASE_DIR", "/AnomalyDetection")
-DATA_DIR = os.environ.get("AD_DATALOAD_DIR", "/ad_dataload")
-RESULT_ROOT = os.environ.get("AD_RESULT_DIR", "/dataresult/品类专项")
+BASE_DIR = os.environ.get("ANOMALY_BASE_DIR", os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.environ.get("AD_DATALOAD_DIR", "/home/tione/notebook/ad_dataload")
+RESULT_ROOT = os.environ.get("AD_RESULT_DIR", "/home/tione/notebook/dataresult/品类专项")
 INPUT_FILE = ""  # 运行时在 detect_categories.py 中动态定位数据文件
 WHITELIST_FILE = os.path.join(BASE_DIR, "whitelist.xlsx")
 OUTPUT_FILE = os.path.join(RESULT_ROOT, f"异常检测结果_{int(time.time())}.xlsx")

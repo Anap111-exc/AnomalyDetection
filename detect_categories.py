@@ -18,7 +18,7 @@
 import pandas as pd, numpy as np, os, sys, time, glob, warnings
 warnings.filterwarnings('ignore')
 
-BASE_DIR = os.environ.get("ANOMALY_BASE_DIR", "/AnomalyDetection")
+BASE_DIR = os.environ.get("ANOMALY_BASE_DIR", os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 os.chdir(BASE_DIR)
 
