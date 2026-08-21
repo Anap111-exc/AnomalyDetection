@@ -74,9 +74,12 @@ def data_process(df):
     key_cols = [c for c in key_cols if c in df.columns]
     df = df.dropna(subset=key_cols)
 
-    # ⑦ 去重
+    # ⑦ 去重（先按明细ID，再按业务键——部分数据源同一明细被导出多次且ID不同）
     if COL_ORD_ITEM_ID in df.columns:
         df = df.drop_duplicates(subset=[COL_ORD_ITEM_ID])
+    dup_keys = [c for c in [COL_ORDER_ID, COL_SKU_ID, COL_TAX_PRICE, COL_PUR_QTY, COL_SUBMIT_TIME] if c in df.columns]
+    if len(dup_keys) >= 3:
+        df = df.drop_duplicates(subset=dup_keys)
 
     # ⑧ 数值有效性 + 金额偏差标记
     df = df[df[COL_TAX_PRICE] > 0]

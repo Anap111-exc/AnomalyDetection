@@ -50,13 +50,15 @@ def price_detector(df, rule_engine):
                 # （全历史下限防止价格水平切换后旧价残留单被未来低价基准误判；同期窗口不足3行回退全历史中位数）
                 try:
                     grp_sorted = grp.sort_values(COL_SUBMIT_TIME)
-                    times = grp_sorted[COL_SUBMIT_TIME].values
+                    # 时间转 int64 纳秒，规避老版本 numpy/pandas 的 datetime 搜索兼容问题
+                    times = pd.to_datetime(grp_sorted[COL_SUBMIT_TIME], utc=True).tz_localize(None).astype('int64').values
+                    _NS_DAY = 86_400_000_000_000
                     p_sorted = grp_sorted[COL_TAX_PRICE].values
                     hist_med = float(np.median(prices))
                     bases = np.empty(len(grp_sorted))
                     for i, t in enumerate(times):
-                        lo = np.searchsorted(times, t - pd.Timedelta(days=30))
-                        hi = np.searchsorted(times, t + pd.Timedelta(days=30), side='right')
+                        lo = np.searchsorted(times, t - 30 * _NS_DAY)
+                        hi = np.searchsorted(times, t + 30 * _NS_DAY, side='right')
                         win = p_sorted[lo:hi]
                         bases[i] = max(np.median(win), hist_med) if len(win) >= 3 else hist_med
                     median_price = pd.Series(bases, index=grp_sorted.index).reindex(grp.index).values

@@ -8,6 +8,13 @@ import pandas as pd
 import numpy as np
 from config import *
 
+NS_PER_DAY = 86_400_000_000_000
+
+
+def _time_ns(series):
+    """时间列/数组转 int64 纳秒（统一UTC，兼容老版本 numpy/pandas，规避 datetime 比较/搜索问题）"""
+    return pd.to_datetime(series, utc=True).astype('int64').values
+
 
 class RuleEngine:
     """规则引擎核心类"""
@@ -76,14 +83,14 @@ def rule_p1_multiple_supplier_gap(df):
         overlap = pd.Series(False, index=df.index)
         low = df[df[COL_TAX_PRICE] == _min]
         for sku, sub in df[base].groupby(COL_SKU_NAME):
-            low_times = low.loc[low[COL_SKU_NAME] == sku, COL_SUBMIT_TIME].values
+            low_times = _time_ns(low.loc[low[COL_SKU_NAME] == sku, COL_SUBMIT_TIME])
             if len(low_times) == 0:
                 continue
             sub_sorted = sub.sort_values(COL_SUBMIT_TIME)
-            times = sub_sorted[COL_SUBMIT_TIME].values
+            times = _time_ns(sub_sorted[COL_SUBMIT_TIME])
             for t, idx in zip(times, sub_sorted.index):
-                has_low = ((low_times >= t - pd.Timedelta(days=RULE_P1_OVERLAP_DAYS)) &
-                           (low_times <= t + pd.Timedelta(days=RULE_P1_OVERLAP_DAYS))).any()
+                has_low = ((low_times >= t - RULE_P1_OVERLAP_DAYS * NS_PER_DAY) &
+                           (low_times <= t + RULE_P1_OVERLAP_DAYS * NS_PER_DAY)).any()
                 overlap.loc[idx] = has_low
         mask = base & overlap
     else:
@@ -237,9 +244,9 @@ def rule_s2_cross_day_split(df):
         # 对每个触发行，将窗口内所有行都标记（回传传播）
         grp_mask = np.zeros(n, dtype=bool)
         if is_trigger.any():
-            times = grp_sorted[COL_SUBMIT_TIME].values
+            times = _time_ns(grp_sorted[COL_SUBMIT_TIME])
             for idx in np.where(is_trigger)[0]:
-                left = np.searchsorted(times, times[idx] - pd.Timedelta(days=RULE_SPLIT_WINDOW_DAYS))
+                left = np.searchsorted(times, times[idx] - RULE_SPLIT_WINDOW_DAYS * NS_PER_DAY)
                 grp_mask[left:idx+1] = True
 
         split_flags.loc[grp_idx] = grp_mask
@@ -279,7 +286,7 @@ def rule_s6_short_term_high_freq(df):
         return df
 
     for grp_key, grp in df_sorted.groupby(s6_key, dropna=False):
-        times = grp[COL_SUBMIT_TIME].values
+        times = _time_ns(grp[COL_SUBMIT_TIME])
         n = len(grp)
         if n < 2:
             continue
@@ -288,9 +295,9 @@ def rule_s6_short_term_high_freq(df):
         j_14 = 0
         for i in range(n):
             ti = times[i]
-            while j_7 < n and times[j_7] < ti - pd.Timedelta(days=7):
+            while j_7 < n and times[j_7] < ti - 7 * NS_PER_DAY:
                 j_7 += 1
-            while j_14 < n and times[j_14] < ti - pd.Timedelta(days=14):
+            while j_14 < n and times[j_14] < ti - 14 * NS_PER_DAY:
                 j_14 += 1
             cnt_7 = i - j_7 + 1
             cnt_14 = i - j_14 + 1
