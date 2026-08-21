@@ -71,7 +71,8 @@ IF_N_ESTIMATORS = 100
 IF_RANDOM_STATE = 42
 LOF_N_NEIGHBORS = 20
 PRICE_KDE_MIN_CV = 0.03           # 价格CV低于该值跳过KDE（无波动时KDE排名是随机噪声）
-PRICE_KDE_MIN_RATIO = 1.05        # 价格须高于中位价该倍数才允许KDE给分（原1.5倍拦死温和涨价）
+PRICE_KDE_MIN_RATIO = 1.05        # 价格阈值兜底：不低于±30天窗口中位价的该倍数
+RULE_PRICE_KDE_PERCENTILE = 0.95  # 价格KDE分位门槛：高于该分位价格才给分（与数量KDE一致）
 PROPHET_MIN_MEDIAN_DEV = 0.04     # Prophet价格异常须高于前向基准价4%（放宽微涨边缘，如+4.8%涨价）
 PROPHET_JUMP_KEEP_N = 3           # 价格突变段内保留前N笔（段首过滤，后续同价单为新常态不标）
 

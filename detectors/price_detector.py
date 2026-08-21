@@ -10,6 +10,8 @@ from config import *
 def price_detector(df, rule_engine):
     print("  [price_detector] 执行中...")
 
+    _NS_DAY = 86_400_000_000_000
+
     if 'price_score' not in df.columns:
         df['price_score'] = 0.0
 
@@ -41,31 +43,36 @@ def price_detector(df, rule_engine):
                 scores = np.zeros(len(grp))
             else:
                 kde = KernelDensity(kernel='gaussian', bandwidth='scott').fit(prices)
-                log_density = kde.score_samples(prices)
-                ranks = stats.rankdata(-log_density)
-                pct = ranks / len(ranks) * 100
-                scores = np.where(pct >= 95, pct, 0)
-                # 业务底线：排除"不高反低"的左侧离群点，高于基准价1.05倍才允许给分
-                # 基准价 = max(该行前后30天价格中位数, 全历史中位数)
-                # （全历史下限防止价格水平切换后旧价残留单被未来低价基准误判；同期窗口不足3行回退全历史中位数）
+                # 分位数法：拟合分布 → 求 CDF 的 RULE_PRICE_KDE_PERCENTILE 分位价格作为阈值（与数量KDE一致）
+                p_max = float(np.max(prices))
+                grid = np.linspace(0, max(p_max * 1.5, 10), 2000).reshape(-1, 1)
+                log_dens = kde.score_samples(grid)
+                dens = np.exp(log_dens)
+                cdf = np.cumsum(dens)
+                cdf = cdf / cdf[-1]
+                idx_p = np.searchsorted(cdf, RULE_PRICE_KDE_PERCENTILE)
+                threshold_kde = float(grid[idx_p][0])
+                # 窗口兜底：阈值不低于"该行±30天窗口内价格中位×1.05"（按天粒度减少边界敏感，不足3行回退全史中位）
                 try:
                     grp_sorted = grp.sort_values(COL_SUBMIT_TIME)
-                    # 时间转 int64 纳秒（统一ns精度，规避老版本numpy/pandas的datetime搜索兼容与us/ns差异）
+                    # 时间转 int64 纳秒（统一ns精度）并按天floor，同一天的行窗口完全一致
                     times = pd.to_datetime(grp_sorted[COL_SUBMIT_TIME], utc=True).dt.tz_convert(None).astype('datetime64[ns]').astype('int64').values
-                    _NS_DAY = 86_400_000_000_000
+                    times_day = times - times % _NS_DAY
                     p_sorted = grp_sorted[COL_TAX_PRICE].values
                     hist_med = float(np.median(prices))
-                    bases = np.empty(len(grp_sorted))
-                    for i, t in enumerate(times):
-                        lo = np.searchsorted(times, t - 30 * _NS_DAY)
-                        hi = np.searchsorted(times, t + 30 * _NS_DAY, side='right')
+                    thresholds = np.empty(len(grp_sorted))
+                    for i, t in enumerate(times_day):
+                        lo = np.searchsorted(times_day, t - 30 * _NS_DAY)
+                        hi = np.searchsorted(times_day, t + 30 * _NS_DAY, side='right')
                         win = p_sorted[lo:hi]
-                        bases[i] = max(np.median(win), hist_med) if len(win) >= 3 else hist_med
-                    median_price = pd.Series(bases, index=grp_sorted.index).reindex(grp.index).values
+                        win_med = float(np.median(win)) if len(win) >= 3 else hist_med
+                        thresholds[i] = max(threshold_kde, win_med * PRICE_KDE_MIN_RATIO)
+                    threshold = pd.Series(thresholds, index=grp_sorted.index).reindex(grp.index).values
                 except Exception:
-                    median_price = np.full(len(grp), np.median(prices))
-                trivial_mask = grp[COL_TAX_PRICE].values <= median_price * PRICE_KDE_MIN_RATIO
-                scores[trivial_mask] = 0
+                    threshold = np.full(len(grp), threshold_kde)
+                # 价格超过阈值才给分，分数按超阈值比例映射（最高100分）
+                raw_scores = np.where(prices.flatten() > threshold, prices.flatten() / threshold * 100, 0)
+                scores = np.minimum(raw_scores, 100).round(1)
         except Exception:
             scores = np.zeros(len(grp))
 
