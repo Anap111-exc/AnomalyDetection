@@ -6,4 +6,4 @@ openpyxl>=3.0
 scipy>=1.7
 python-dateutil>=2.8
 # Prophet 可选（concen_detector 已 try/except 保护，缺失时跳过时序检测）
-# prophet>=1.0
+prophet>=1.0

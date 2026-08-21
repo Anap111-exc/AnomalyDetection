@@ -5,12 +5,21 @@
 """
 
 import os
+import sys
 import time
 
-# ==================== 路径（ti-one 平台，可用环境变量覆盖用于本地测试） ====================
+# ==================== 路径（环境变量优先 > 平台自动检测，本机与 ti-one 零配置切换） ====================
 BASE_DIR = os.environ.get("ANOMALY_BASE_DIR", os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.environ.get("AD_DATALOAD_DIR", "/home/tione/notebook/ad_dataload")
-RESULT_ROOT = os.environ.get("AD_RESULT_DIR", "/home/tione/notebook/dataresult/品类专项")
+if sys.platform == 'win32':
+    # 本机（Windows）：数据取桌面，结果输出到代码目录下 test_output
+    DEFAULT_DATA_DIR = os.path.join(os.path.expanduser('~'), 'Desktop')
+    DEFAULT_RESULT_DIR = os.path.join(BASE_DIR, 'test_output')
+else:
+    # ti-one / Linux：webide 数据与结果目录
+    DEFAULT_DATA_DIR = '/home/tione/notebook/ad_dataload' if os.path.isdir('/home/tione') else os.path.join(BASE_DIR, 'data')
+    DEFAULT_RESULT_DIR = '/home/tione/notebook/dataresult/品类专项' if os.path.isdir('/home/tione') else os.path.join(BASE_DIR, 'test_output')
+DATA_DIR = os.environ.get("AD_DATALOAD_DIR", DEFAULT_DATA_DIR)
+RESULT_ROOT = os.environ.get("AD_RESULT_DIR", DEFAULT_RESULT_DIR)
 INPUT_FILE = ""  # 运行时在 detect_categories.py 中动态定位数据文件
 WHITELIST_FILE = os.path.join(BASE_DIR, "whitelist.xlsx")
 OUTPUT_FILE = os.path.join(RESULT_ROOT, f"异常检测结果_{int(time.time())}.xlsx")
