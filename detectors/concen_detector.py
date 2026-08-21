@@ -138,8 +138,9 @@ def _detect_prophet_dbscan(df):
     concen_scores[is_high_price_agg] = 100
 
     # 所有 Prophet 价格异常行回写 price_score（含高价聚量交集行，价格异常信息不丢失）
+    # 90分 = BINARY_THRESHOLD，确保 Prophet 时序异常在融合层被判定为异常
     price_scores = np.zeros(len(df))
-    price_scores[price_anom.values] = 80
+    price_scores[price_anom.values] = 90
 
     return concen_scores, price_scores, price_anom
 
