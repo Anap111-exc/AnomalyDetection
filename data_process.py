@@ -63,9 +63,9 @@ def data_process(df):
             pd.to_numeric(df[COL_ORIGIN_PRICE], errors='coerce')
         )
 
-    # ⑤ 时间转换 + 异常日期过滤
-    df[COL_SUBMIT_TIME] = pd.to_datetime(df[COL_SUBMIT_TIME], errors='coerce')
-    today = pd.Timestamp.now()
+    # ⑤ 时间转换 + 异常日期过滤（统一UTC时区，兼容CSV带时区时间列）
+    df[COL_SUBMIT_TIME] = pd.to_datetime(df[COL_SUBMIT_TIME], errors='coerce', utc=True)
+    today = pd.Timestamp.now(tz='UTC')
     df = df[(df[COL_SUBMIT_TIME] >= '2020-01-01') & (df[COL_SUBMIT_TIME] <= today)]
 
     # ⑥ 关键字段去空
