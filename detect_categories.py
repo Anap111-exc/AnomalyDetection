@@ -34,12 +34,13 @@ from whitelist import load_whitelist, apply_whitelist
 
 
 def locate_data_file():
-    """定位数据目录下的第一个数据文件（.xlsx 或 .csv）"""
-    for ext in ('*.xlsx', '*.csv'):
+    """定位数据目录下的数据文件（.csv 优先，.xlsx 次之；排除检测结果文件）"""
+    for ext in ('*.csv', '*.xlsx'):
         files = sorted(glob.glob(os.path.join(DATA_DIR, ext)))
+        files = [f for f in files if '内采异常数据分析' not in os.path.basename(f)]
         if files:
             return files[0]
-    raise FileNotFoundError(f"未在 {DATA_DIR} 找到数据文件(.xlsx/.csv)")
+    raise FileNotFoundError(f"未在 {DATA_DIR} 找到数据文件(.csv/.xlsx)")
 
 
 def read_data(path):
@@ -131,17 +132,21 @@ def export_result(cat, cat_name):
     return out_path
 
 
-def main():
-    if len(sys.argv) < 2:
-        # 交互模式：直接输入品类名（逗号分隔）
-        print("请输入待检测品类名（多个用英文逗号分隔，如：标签机,茶叶,排插插排）：")
-        inp = input().strip()
-        cat_names = [c.strip() for c in inp.split(',') if c.strip()]
-        if not cat_names:
-            print("未输入有效品类，退出。")
-            sys.exit(1)
+def detect(categories, export=True, verbose=True):
+    """品类检测统一入口（notebook 或命令行均可调用）。
+
+    :param categories: 品类名，字符串(逗号分隔多个) 或 字符串列表，如 "标签机,茶叶" 或 ["标签机", "茶叶"]
+    :param export:     是否导出结果 xlsx（默认 True）
+    :param verbose:    是否打印过程信息（默认 True）
+    :return: dict {品类名: 输出文件路径}
+    """
+    if isinstance(categories, str):
+        cat_names = [c.strip() for c in categories.split(',') if c.strip()]
     else:
-        cat_names = [c.strip() for c in sys.argv[1].split(',') if c.strip()]
+        cat_names = [str(c).strip() for c in categories if str(c).strip()]
+    if not cat_names:
+        print("未输入有效品类，退出。")
+        return {}
     print(f"待检测品类({len(cat_names)}个): {cat_names}")
 
     # 读取原始数据 + 全量特征工程（只做一次）
@@ -153,13 +158,16 @@ def main():
     wl, wl_set = load_whitelist()
     engine = RuleEngine(); register_all_rules(engine)
 
+    results = {}
     for cat_name in cat_names:
         print(f"\n{'='*50}\n检测品类: {cat_name}\n{'='*50}", flush=True)
         t0 = time.time()
         try:
             cat = run_single_category(df_all, cat_name, engine, wl, wl_set)
             if cat is not None:
-                export_result(cat, cat_name)
+                if export:
+                    out_path = export_result(cat, cat_name)
+                    results[cat_name] = out_path
             print(f"  耗时 {time.time()-t0:.0f}s", flush=True)
         except Exception as e:
             import traceback
@@ -167,6 +175,17 @@ def main():
             print(f"  品类[{cat_name}] 检测失败: {e}")
 
     print("\n全部完成!")
+    return results
+
+
+def main():
+    if len(sys.argv) < 2:
+        # 交互模式：直接输入品类名（逗号分隔）
+        print("请输入待检测品类名（多个用英文逗号分隔，如：标签机,茶叶,排插插排）：")
+        inp = input().strip()
+    else:
+        inp = sys.argv[1]
+    detect(inp)
 
 
 if __name__ == "__main__":
