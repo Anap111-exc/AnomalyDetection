@@ -63,8 +63,8 @@ def data_process(df):
             pd.to_numeric(df[COL_ORIGIN_PRICE], errors='coerce')
         )
 
-    # ⑤ 时间转换 + 异常日期过滤（先解析UTC时区，再转naive，兼容numpy1.x对datetime64的操作）
-    df[COL_SUBMIT_TIME] = pd.to_datetime(df[COL_SUBMIT_TIME], errors='coerce', utc=True).dt.tz_localize(None)
+    # ⑤ 时间转换 + 异常日期过滤（先解析UTC时区，再转naive且统一ns精度，兼容各pandas版本与numpy1.x）
+    df[COL_SUBMIT_TIME] = pd.to_datetime(df[COL_SUBMIT_TIME], errors='coerce', utc=True).dt.tz_localize(None).astype('datetime64[ns]')
     today = pd.Timestamp.now(tz='UTC').tz_localize(None)
     df = df[(df[COL_SUBMIT_TIME] >= '2020-01-01') & (df[COL_SUBMIT_TIME] <= today)]
 

@@ -12,8 +12,8 @@ NS_PER_DAY = 86_400_000_000_000
 
 
 def _time_ns(series):
-    """时间列/数组转 int64 纳秒（统一UTC，兼容老版本 numpy/pandas，规避 datetime 比较/搜索问题）"""
-    return pd.to_datetime(series, utc=True).astype('int64').values
+    """时间列/数组转 int64 纳秒（统一UTC→naive→ns精度，兼容老版本numpy/pandas与us/ns精度差异）"""
+    return pd.to_datetime(series, utc=True).dt.tz_convert(None).astype('datetime64[ns]').astype('int64').values
 
 
 class RuleEngine:
