@@ -179,13 +179,17 @@ def rule_q3_qty_cross_check(df):
 # ======================== 拆单规则 ========================
 
 def rule_s1_same_day_split(df):
-    """S1: 同日拆单 → 100分（品类动态阈值）"""
+    """S1: 同日拆单 → 100分（品类动态阈值）
+    拆单定义：单笔都低于常规单笔金额、合计超过常规单笔金额（化整为零）"""
     if 'same_day_order_count' not in df.columns or 'same_day_merged_amount' not in df.columns:
         return df
     if 'split_threshold' not in df.columns:
         return df
     group_cond = (df['same_day_order_count'] >= 2) & \
                  (df['same_day_merged_amount'] > df['split_threshold'])
+    # 单笔条件：组内每一笔的单笔金额都低于常规单笔金额（缺失特征时回退仅合计判定）
+    if 'same_day_max_amount' in df.columns:
+        group_cond = group_cond & (df['same_day_max_amount'] < df['split_threshold'])
     mask = group_cond
     df = _apply_score(df, mask, 'split', 100, 'S1:同日拆单')
     if 'split_type' not in df.columns:

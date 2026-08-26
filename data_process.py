@@ -359,6 +359,7 @@ def feature_engineer(df):
         if len(s1_key) >= 4:
             df['same_day_order_count'] = df.groupby(s1_key, dropna=False)[COL_ORDER_ID].transform('size')
             df['same_day_merged_amount'] = df.groupby(s1_key, dropna=False)[COL_SUB_TTL].transform('sum')
+            df['same_day_max_amount'] = df.groupby(s1_key, dropna=False)[COL_SUB_TTL].transform('max')
 
         # S3: 收货人拆单分组特征 — (收货人, 地址, SKU, 项目, 日)
         s3_key = ['_consigner_valid', COL_SKU_NAME, '_proj_valid', 'submit_day']
