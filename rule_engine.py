@@ -162,7 +162,7 @@ def rule_q2_buyer_daily_total(df):
 
 def rule_q3_qty_cross_check(df):
     """Q3: 数量纵横双超 → 90分（强信号已移除，业务确认只保留双超口径）
-    纵向=超本单位全量数量中位数×10；横向=超所属二级部门该SKU采购量中位数×5"""
+    纵向=超所属二级部门该SKU采购量中位数×3（本单位内）；横向=超该SKU全部订单数量中位数×10（全局）"""
     for c in ['sku_qty_median', 'dept_sku_qty_median']:
         if c not in df.columns:
             return df
@@ -172,7 +172,7 @@ def rule_q3_qty_cross_check(df):
     later = (df[COL_PUR_QTY] > df['dept_sku_qty_median'] * RULE_QTY_DEPT_RATIO) & \
             (df['dept_sku_qty_median'] > 0)
     both = has_history & longi & later
-    df = _apply_score(df, both, 'qty', 90, 'Q3:数量纵横双超(全量中位10倍+同级单位3倍)')
+    df = _apply_score(df, both, 'qty', 90, 'Q3:数量纵横双超(纵向同级3倍+横向全局10倍)')
     return df
 
 
