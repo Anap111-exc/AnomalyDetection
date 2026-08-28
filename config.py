@@ -95,6 +95,11 @@ RULE_CONCEN_PRICE_DEVIATION = 0.4    # C2: 价格偏离阈值
 RULE_TS_BUYER_RATIO = 4.0            # T1: 采购人月单量环比
 RULE_TS_SKU_PRICE_RATIO = 0.6        # T2: SKU均价环比
 
+# ==================== 高价聚量 倒V型过滤（领导口径：先涨价后回落才算聚量） ====================
+RULE_CONCEN_INVERTED_V_DROP = 0.95    # 倒V：后续订单价格须回落到该笔价格的该倍数（回落≥5%）
+RULE_CONCEN_INVERTED_V_DAYS = 14      # 倒V：未来窗口天数（14天内）
+RULE_CONCEN_INVERTED_V_NEXT_N = 5     # 倒V：未来订单笔数（未来5单内）；两个窗口满足任一即可
+
 # ==================== 图算法参数 ====================
 GRAPH_ROLLING_DAYS = 30
 GRAPH_W1 = 0.7                       # PageRank 权重（个人重要性）

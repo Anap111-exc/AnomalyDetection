@@ -109,8 +109,46 @@ def _dbscan_quantity_anomaly(df):
     return result
 
 
+def _inverted_v_mask(df, cand_mask):
+    """倒V型波动过滤（领导口径）：候选行须在其后'未来14天'或'未来5单'内
+    存在价格回落到 该笔价格×0.95 以下的订单，任一窗口满足即保留。
+    只做离线判定（用到未来数据），返回布尔列。"""
+    result = pd.Series(False, index=df.index)
+    if cand_mask.sum() == 0:
+        return result
+    NS_DAY = 86_400_000_000_000
+    for sku in df.loc[cand_mask, COL_SKU_NAME].unique():
+        sub = df[df[COL_SKU_NAME] == sku].sort_values(COL_SUBMIT_TIME)
+        if len(sub) < 2:
+            continue
+        times = pd.to_datetime(sub[COL_SUBMIT_TIME], utc=True).dt.tz_convert(None).astype('datetime64[ns]').astype('int64').values
+        prices = sub[COL_TAX_PRICE].values
+        idx_arr = list(sub.index)
+        for pos, i in enumerate(idx_arr):
+            if not cand_mask.loc[i]:
+                continue
+            line = prices[pos] * RULE_CONCEN_INVERTED_V_DROP
+            ok = False
+            # 未来5单窗口
+            for j in range(pos + 1, min(pos + 1 + RULE_CONCEN_INVERTED_V_NEXT_N, len(sub))):
+                if prices[j] <= line:
+                    ok = True
+                    break
+            # 未来14天窗口（时间单调递增，超窗即断）
+            if not ok:
+                for j in range(pos + 1, len(sub)):
+                    if times[j] - times[pos] > RULE_CONCEN_INVERTED_V_DAYS * NS_DAY:
+                        break
+                    if prices[j] <= line:
+                        ok = True
+                        break
+            if ok:
+                result.loc[i] = True
+    return result
+
+
 def _detect_prophet_dbscan(df):
-    """Prophet+DBSCAN并行检测，返回 (concen_scores, price_anom_scores, pure_price_mask)"""
+    """Prophet+DBSCAN并行检测，返回 (concen_scores, price_anom_scores, price_anom, is_high_price_agg)"""
     df = df.copy()
     print("    [并行] Prophet时序价格异常 + DBSCAN数量聚类...")
 
@@ -134,6 +172,11 @@ def _detect_prophet_dbscan(df):
     is_high_price_agg = price_signal & qty_signal
     print(f"      高价聚量(交集): {is_high_price_agg.sum()} 行")
 
+    # 倒V型过滤：交集聚量须满足'先涨后回落'（未来14天或未来5单内价格回落≥5%）
+    keep_agg = _inverted_v_mask(df, pd.Series(is_high_price_agg, index=df.index))
+    is_high_price_agg = is_high_price_agg & keep_agg.values
+    print(f"      倒V过滤后交集聚量: {is_high_price_agg.sum()} 行")
+
     concen_scores = np.zeros(len(df))
     concen_scores[is_high_price_agg] = 100
 
@@ -142,7 +185,7 @@ def _detect_prophet_dbscan(df):
     price_scores = np.zeros(len(df))
     price_scores[price_anom.values] = 90
 
-    return concen_scores, price_scores, price_anom
+    return concen_scores, price_scores, price_anom, is_high_price_agg
 
 
 def concen_detector(df, rule_engine):
@@ -156,8 +199,16 @@ def concen_detector(df, rule_engine):
 
     # Step 2: Prophet+DBSCAN 并行检测
     if COL_SUBMIT_TIME in df.columns:
-        concen_scores, price_anom_scores, price_anom = _detect_prophet_dbscan(df)
+        concen_scores, price_anom_scores, price_anom, is_agg = _detect_prophet_dbscan(df)
         prophet_mask = concen_scores > 0
+        # C3/C4 规则命中的聚量同样要求倒V型波动（C2 高价供应商依赖除外）
+        if 'concen_rule_reason' in df.columns:
+            c34_mask = df['concen_rule_reason'].fillna('').astype(str).str.contains('C3:|C4:', na=False)
+            if c34_mask.any():
+                keep_c34 = _inverted_v_mask(df, c34_mask)
+                bad_c34 = c34_mask & ~keep_c34
+                df.loc[bad_c34, 'concen_score'] = 0.0
+                print(f"      C3/C4规则聚量倒V过滤: {c34_mask.sum()} 行 -> 保留 {keep_c34.sum()} 行")
         df['concen_score'] = np.maximum(df['concen_score'], concen_scores)
         # 将 Prophet 价格异常回写到 price_score（含高价聚量行）
         df['price_score'] = np.maximum(df['price_score'], price_anom_scores)
