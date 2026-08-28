@@ -34,7 +34,12 @@ from whitelist import load_whitelist, apply_whitelist
 
 
 def locate_data_file():
-    """定位数据目录下的数据文件（.csv 优先，.xlsx 次之；排除检测结果文件）"""
+    """定位数据目录下的数据文件（AD_INPUT_FILE 指定时优先；否则 .csv 优先，.xlsx 次之；排除检测结果文件）"""
+    if INPUT_FILE:
+        p = os.path.join(DATA_DIR, INPUT_FILE)
+        if os.path.exists(p):
+            return p
+        raise FileNotFoundError(f"指定的数据文件不存在: {p}")
     for ext in ('*.csv', '*.xlsx'):
         files = sorted(glob.glob(os.path.join(DATA_DIR, ext)))
         files = [f for f in files if '内采异常数据分析' not in os.path.basename(f)]

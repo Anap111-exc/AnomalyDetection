@@ -20,7 +20,8 @@ else:
     DEFAULT_RESULT_DIR = '/home/tione/notebook/dataresult/品类专项' if os.path.isdir('/home/tione') else os.path.join(BASE_DIR, 'test_output')
 DATA_DIR = os.environ.get("AD_DATALOAD_DIR", DEFAULT_DATA_DIR)
 RESULT_ROOT = os.environ.get("AD_RESULT_DIR", DEFAULT_RESULT_DIR)
-INPUT_FILE = ""  # 运行时在 detect_categories.py 中动态定位数据文件
+# 指定读取的数据文件名（含扩展名，放 DATA_DIR 下；留空则自动取目录下第一个 CSV/xlsx）
+INPUT_FILE = os.environ.get("AD_INPUT_FILE", "")
 WHITELIST_FILE = os.path.join(BASE_DIR, "whitelist.xlsx")
 OUTPUT_FILE = os.path.join(RESULT_ROOT, f"异常检测结果_{int(time.time())}.xlsx")
 AUDIT_DIR = RESULT_ROOT
@@ -99,6 +100,7 @@ RULE_TS_SKU_PRICE_RATIO = 0.6        # T2: SKU均价环比
 RULE_CONCEN_INVERTED_V_DROP = 0.95    # 倒V：后续订单价格须回落到该笔价格的该倍数（回落≥5%）
 RULE_CONCEN_INVERTED_V_DAYS = 14      # 倒V：未来窗口天数（14天内）
 RULE_CONCEN_INVERTED_V_NEXT_N = 5     # 倒V：未来订单笔数（未来5单内）；两个窗口满足任一即可
+USE_PROPHET = os.environ.get("USE_PROPHET", "1") == "1"  # 时序检测开关：全品类快速模式可置 0 跳过 Prophet
 
 # ==================== 图算法参数 ====================
 GRAPH_ROLLING_DAYS = 30

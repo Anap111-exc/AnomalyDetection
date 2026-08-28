@@ -152,7 +152,7 @@ def _detect_prophet_dbscan(df):
     df = df.copy()
     print("    [并行] Prophet时序价格异常 + DBSCAN数量聚类...")
 
-    price_anom = _prophet_price_anomaly(df)
+    price_anom = _prophet_price_anomaly(df) if USE_PROPHET else pd.Series(False, index=df.index)
     qty_anom = _dbscan_quantity_anomaly(df)
 
     print(f"      Prophet价格异常: {price_anom.sum()} 行")
