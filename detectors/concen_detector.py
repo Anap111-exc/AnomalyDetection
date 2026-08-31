@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """高价聚量检测器：规则(C2-C4) + Prophet+DBSCAN并行"""
 
 import pandas as pd
@@ -32,7 +32,9 @@ def _prophet_price_anomaly(df):
     if len(eligible) == 0:
         return result
 
-    for sku in eligible:
+    for n_processed, sku in enumerate(eligible, 1):
+        if n_processed % 200 == 0 or n_processed == len(eligible):
+            print(f"      Prophet进度: {n_processed}/{len(eligible)} SKU", flush=True)
         mask = df[COL_SKU_NAME] == sku
         sub = df[mask].sort_values(COL_SUBMIT_TIME)
         try:
@@ -150,13 +152,13 @@ def _inverted_v_mask(df, cand_mask):
 def _detect_prophet_dbscan(df):
     """Prophet+DBSCAN并行检测，返回 (concen_scores, price_anom_scores, price_anom, is_high_price_agg)"""
     df = df.copy()
-    print("    [并行] Prophet时序价格异常 + DBSCAN数量聚类...")
+    print(f"    [并行] Prophet时序价格异常 + DBSCAN数量聚类...", flush=True)
 
     price_anom = _prophet_price_anomaly(df) if USE_PROPHET else pd.Series(False, index=df.index)
     qty_anom = _dbscan_quantity_anomaly(df)
 
-    print(f"      Prophet价格异常: {price_anom.sum()} 行")
-    print(f"      DBSCAN数量异常: {qty_anom.sum()} 行")
+    print(f"      Prophet价格异常: {price_anom.sum()} 行", flush=True)
+    print(f"      DBSCAN数量异常: {qty_anom.sum()} 行", flush=True)
 
     # 数量异常信号 = 数量检测器(qty_score>=80) ∪ DBSCAN聚类
     # 双口径：qty_detector的KDE CDF主判 + DBSCAN聚类兜底（两链互相补漏）
@@ -170,12 +172,12 @@ def _detect_prophet_dbscan(df):
 
     # 高价聚量 = 价格异常 AND 数量异常
     is_high_price_agg = price_signal & qty_signal
-    print(f"      高价聚量(交集): {is_high_price_agg.sum()} 行")
+    print(f"      高价聚量(交集): {is_high_price_agg.sum()} 行", flush=True)
 
     # 倒V型过滤：交集聚量须满足'先涨后回落'（未来14天或未来5单内价格回落≥5%）
     keep_agg = _inverted_v_mask(df, pd.Series(is_high_price_agg, index=df.index))
     is_high_price_agg = is_high_price_agg & keep_agg.values
-    print(f"      倒V过滤后交集聚量: {is_high_price_agg.sum()} 行")
+    print(f"      倒V过滤后交集聚量: {is_high_price_agg.sum()} 行", flush=True)
 
     concen_scores = np.zeros(len(df))
     concen_scores[is_high_price_agg] = 100
@@ -189,7 +191,7 @@ def _detect_prophet_dbscan(df):
 
 
 def concen_detector(df, rule_engine):
-    print("  [concen_detector] 执行中...")
+    print(f"  [concen_detector] 执行中...", flush=True)
 
     if 'concen_score' not in df.columns:
         df['concen_score'] = 0.0
@@ -208,7 +210,7 @@ def concen_detector(df, rule_engine):
                 keep_c34 = _inverted_v_mask(df, c34_mask)
                 bad_c34 = c34_mask & ~keep_c34
                 df.loc[bad_c34, 'concen_score'] = 0.0
-                print(f"      C3/C4规则聚量倒V过滤: {c34_mask.sum()} 行 -> 保留 {keep_c34.sum()} 行")
+                print(f"      C3/C4规则聚量倒V过滤: {c34_mask.sum()} 行 -> 保留 {keep_c34.sum()} 行", flush=True)
         df['concen_score'] = np.maximum(df['concen_score'], concen_scores)
         # 将 Prophet 价格异常回写到 price_score（含高价聚量行）
         df['price_score'] = np.maximum(df['price_score'], price_anom_scores)
@@ -223,5 +225,5 @@ def concen_detector(df, rule_engine):
             df['concen_rule_reason'] = ''
         df.loc[prophet_mask, 'concen_rule_reason'] = df.loc[prophet_mask, 'concen_rule_reason'].fillna('') + ';Prophet:时序价格异常+数量异常'
 
-    print(f"    规则命中 {(df['concen_score'] >= 70).sum()} 行")
+    print(f"    规则命中 {(df['concen_score'] >= 70).sum()} 行", flush=True)
     return df

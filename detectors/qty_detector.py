@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """数量异常检测器：规则(Q1/Q3) + per-SKU KDE CDF分位数
 KDE拟合用SKU全样本（含规则命中行，分布不失真），打分覆盖全部行（规则命中行取 max(规则分, KDE分)）"""
 import pandas as pd
@@ -8,7 +8,7 @@ from config import *
 
 
 def qty_detector(df, rule_engine):
-    print("  [qty_detector] 执行中...")
+    print(f"  [qty_detector] 执行中...", flush=True)
 
     if 'qty_score' not in df.columns:
         df['qty_score'] = 0.0
@@ -22,7 +22,7 @@ def qty_detector(df, rule_engine):
     # 拟合用全样本（避免排除大单后分布失真），打分覆盖全部行（规则命中行取两者最大值）
     fit_df = df[large_sample]
     if len(fit_df) == 0:
-        print("    KDE跳过")
+        print(f"    KDE跳过", flush=True)
         return df
 
     df_list = []
@@ -77,5 +77,5 @@ def qty_detector(df, rule_engine):
     df.loc[kde_mask, 'qty_rule_reason'] = \
         df.loc[kde_mask, 'qty_rule_reason'].fillna('') + ';KDE:数量分布离群'
 
-    print(f"    KDE处理 {len(fit_df)} 行")
+    print(f"    KDE处理 {len(fit_df)} 行", flush=True)
     return df

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """价格异常检测器：规则(P1-P4) + per-SKU KDE核密度估计"""
 
 import pandas as pd
@@ -8,7 +8,7 @@ from config import *
 
 
 def price_detector(df, rule_engine):
-    print("  [price_detector] 执行中...")
+    print(f"  [price_detector] 执行中...", flush=True)
 
     _NS_DAY = 86_400_000_000_000
 
@@ -24,7 +24,7 @@ def price_detector(df, rule_engine):
     df_ml = df[large_sample & ~rule_hit].copy()
 
     if len(df_ml) == 0:
-        print(f"    KDE跳过")
+        print(f"    KDE跳过", flush=True)
         return df
 
     df_list = []
@@ -93,5 +93,5 @@ def price_detector(df, rule_engine):
     df.loc[kde_mask, 'price_rule_reason'] = \
         df.loc[kde_mask, 'price_rule_reason'].fillna('') + ';KDE:价格分布离群'
 
-    print(f"    KDE处理 {len(df_ml)} 行, 规则命中 {(rule_hit).sum()} 行")
+    print(f"    KDE处理 {len(df_ml)} 行, 规则命中 {(rule_hit).sum()} 行", flush=True)
     return df
