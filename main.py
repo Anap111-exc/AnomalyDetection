@@ -114,7 +114,7 @@ def main():
     # 10. 输出
     print("\n[10/10] 保存结果...")
     output_cols = [
-        COL_ORDER_ID, COL_ORD_ITEM_ID, COL_SUBMIT_TIME,
+        COL_ORDER_ID, COL_ORDER_NO, COL_ORD_ITEM_ID, COL_SUBMIT_TIME,
         COL_SMTR_NAME, COL_DEPT, COL_SEC_DEPT, COL_SUP_NAME,
         COL_CONSIGNER, COL_REC_ADDRESS, COL_SKU_NAME,
         COL_PROJ_NAME, COL_FOUR_CAT,

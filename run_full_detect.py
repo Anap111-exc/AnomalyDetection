@@ -79,7 +79,7 @@ df_all = compute_final_score(df_all)
 
 os.makedirs(RESULT_ROOT, exist_ok=True)
 out_full = os.path.join(RESULT_ROOT, "全品类-全量标注.xlsx")
-cols = [c for c in ["order_id", "ord_item_id", "submit_time",
+cols = [c for c in ["order_id", "order_no", "ord_item_id", "submit_time",
         "smtr_name", "thd_dept_short_name", "sec_dept_short_name", "sup_short_name",
         "consigner_name", "rec_address", "sku_name", "proj_name", "four_cat_name",
         "tax_price", "pur_qty", "sub_ttl",
