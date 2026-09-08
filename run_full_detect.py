@@ -36,8 +36,10 @@ def locate_data_file():
             return files[0]
     raise FileNotFoundError(f"未在 {DATA_DIR} 找到数据文件")
 
-# 读数据时按类型压缩内存（字符串字段显式 str/category；数值列不强制类型，读取后容错转换，
-# 避免个别文件列含脏文本时 dtype 强转直接崩溃）
+# 读数据时按类型压缩内存（字符串字段显式 str/category；仅 CSV 使用）
+# 数值列一律不在此预转换！Excel/CSV 中数量、金额常为文本格式（如 "1.54万"、"8,550"），
+# 读取后直接 to_numeric(errors='coerce') 会把它们转成 NaN，随后被清洗层当无效数据误删；
+# 文本数值的解析统一交给 data_process（去千分位逗号 + "万"×10000 + 容错转数值），全流程保持兼容。
 FULL_DTYPE = {
     'order_id': 'str', 'order_no': 'str', 'ord_item_id': 'str',
     'sku_code': 'category', 'sku_name': 'category',
@@ -51,15 +53,10 @@ FULL_DTYPE = {
     'sec_dept_type': 'str', 'material_type': 'str', 'store_pzn_level': 'str',
     'is_povt_alevt': 'str', 'measure_unit_name': 'str', 'apply_people_name': 'str',
 }
-# 数值列（读取后统一转数值，脏值转 NaN 由清洗阶段处理）
-NUMERIC_COLS = ['pur_qty', 'origin_tax_price', 'tax_price', 'sub_ttl']
 
 print(f"读取数据: {locate_data_file()}", flush=True)
 raw_path = locate_data_file()
 df_all = pd.read_csv(raw_path, dtype=FULL_DTYPE) if raw_path.endswith(".csv") else pd.read_excel(raw_path)
-for c in NUMERIC_COLS:
-    if c in df_all.columns:
-        df_all[c] = pd.to_numeric(df_all[c], errors="coerce")
 df_all = data_process(df_all)
 df_all = feature_engineer(df_all)
 print(f"全量清洗后: {len(df_all)} 行, {df_all[COL_FOUR_CAT].nunique()} 个四级品类", flush=True)
