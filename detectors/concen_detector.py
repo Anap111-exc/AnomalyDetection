@@ -21,16 +21,18 @@ DBSCAN_MIN_SAMPLES = 3          # 核心点最小邻居数
 
 
 def _prophet_price_anomaly(df):
-    """per-SKU Prophet时间序列价格异常检测，返回布尔列"""
+    """per-SKU Prophet时间序列价格异常检测
+    返回 (布尔异常列, 95%置信区间上界列)；无 Prophet 覆盖的行上界为 NaN"""
     if not HAS_PROPHET:
-        return pd.Series(False, index=df.index)
+        return pd.Series(False, index=df.index), pd.Series(np.nan, index=df.index)
 
     result = pd.Series(False, index=df.index)
+    ci = pd.Series(np.nan, index=df.index)          # 每行 yhat_upper（95% 置信区间上界）
     sku_counts = df.groupby(COL_SKU_NAME).size()
     eligible = sku_counts[sku_counts >= PROPHET_MIN_TRAIN].index
 
     if len(eligible) == 0:
-        return result
+        return result, ci
 
     for n_processed, sku in enumerate(eligible, 1):
         if n_processed % 200 == 0 or n_processed == len(eligible):
@@ -70,10 +72,11 @@ def _prophet_price_anomaly(df):
             keep = seg_rank <= PROPHET_JUMP_KEEP_N
             anom = anom & keep.values
             result.loc[sub.index] = anom
+            ci.loc[sub.index] = upper           # upper 与 sub 按时间排序后的行序一致
         except Exception:
             continue
 
-    return result
+    return result, ci
 
 
 def _dbscan_quantity_anomaly(df):
@@ -150,11 +153,16 @@ def _inverted_v_mask(df, cand_mask):
 
 
 def _detect_prophet_dbscan(df):
-    """Prophet+DBSCAN并行检测，返回 (concen_scores, price_anom_scores, price_anom, is_high_price_agg)"""
+    """Prophet+DBSCAN并行检测
+    返回 (concen_scores, price_anom_scores, price_anom, is_high_price_agg, price_ci)"""
     df = df.copy()
     print(f"    [并行] Prophet时序价格异常 + DBSCAN数量聚类...", flush=True)
 
-    price_anom = _prophet_price_anomaly(df) if USE_PROPHET else pd.Series(False, index=df.index)
+    if USE_PROPHET:
+        price_anom, price_ci = _prophet_price_anomaly(df)
+    else:
+        price_anom, price_ci = (pd.Series(False, index=df.index),
+                                pd.Series(np.nan, index=df.index))
     qty_anom = _dbscan_quantity_anomaly(df)
 
     print(f"      Prophet价格异常: {price_anom.sum()} 行", flush=True)
@@ -187,7 +195,7 @@ def _detect_prophet_dbscan(df):
     price_scores = np.zeros(len(df))
     price_scores[price_anom.values] = 90
 
-    return concen_scores, price_scores, price_anom, is_high_price_agg
+    return concen_scores, price_scores, price_anom, is_high_price_agg, price_ci
 
 
 def concen_detector(df, rule_engine):
@@ -201,8 +209,13 @@ def concen_detector(df, rule_engine):
 
     # Step 2: Prophet+DBSCAN 并行检测
     if COL_SUBMIT_TIME in df.columns:
-        concen_scores, price_anom_scores, price_anom, is_agg = _detect_prophet_dbscan(df)
+        concen_scores, price_anom_scores, price_anom, is_agg, price_ci = _detect_prophet_dbscan(df)
         prophet_mask = concen_scores > 0
+        # 置信区间上界（Prophet yhat_upper）与偏离率=(单价-上界)/上界；无 Prophet 覆盖的行留 NaN
+        df['confidence_interval'] = price_ci.values
+        with np.errstate(divide='ignore', invalid='ignore'):
+            df['deviation'] = (df[COL_TAX_PRICE] - df['confidence_interval']) / df['confidence_interval']
+        df.loc[~np.isfinite(df['deviation']), 'deviation'] = np.nan
         # C3/C4 规则命中的聚量同样要求倒V型波动（C2 高价供应商依赖除外）
         if 'concen_rule_reason' in df.columns:
             c34_mask = df['concen_rule_reason'].fillna('').astype(str).str.contains('C3:|C4:', na=False)
