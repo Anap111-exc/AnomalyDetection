@@ -11,6 +11,7 @@
   USE_PROPHET=1 python run_full_detect.py          # 含 Prophet（SKU 多时很慢）
 """
 import pandas as pd, numpy as np, io, sys, os, logging
+from openpyxl import Workbook
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 logging.getLogger("cmdstanpy").setLevel(logging.ERROR)
@@ -83,9 +84,14 @@ cols = [c for c in ["order_id", "order_no", "ord_item_id", "submit_time",
         "tax_price", "pur_qty", "sub_ttl",
         "anomaly_type", "risk_level",
         "price_type", "qty_type", "split_type", "concen_type"] if c in df_all.columns]
-# 大文件用 xlsxwriter 的 constant_memory 流式写盘，避免 openpyxl 在 45 万行时内存爆掉
-df_all.to_excel(out_full, columns=cols, index=False, engine="xlsxwriter",
-                engine_kwargs={"options": {"constant_memory": True}})
+# 大结果集用 openpyxl write_only 流式写盘：低内存且正确
+# （不要用 pandas+xlsxwriter 的 constant_memory：pandas 3.x 下会把数值/日期列只写第一行）
+_wb = Workbook(write_only=True)
+_ws = _wb.create_sheet("Sheet1")
+_ws.append(list(cols))
+for _rec in df_all[cols].itertuples(index=False, name=None):
+    _ws.append([None if _v is pd.NaT else _v for _v in _rec])
+_wb.save(out_full)
 print(f"输出: {out_full} | 总{len(df_all)}行 异常{(df_all['risk_level']=='异常').sum()}行", flush=True)
 
 summ = df_all[df_all["risk_level"] == "异常"].groupby(COL_FOUR_CAT)["anomaly_type"] \

@@ -3,8 +3,6 @@ numpy>=1.21
 scikit-learn>=1.0
 networkx>=2.6
 openpyxl>=3.0
-# 大结果集写 Excel 用 xlsxwriter 的 constant_memory 流式写，降低内存（45 万行用 openpyxl 会 OOM）
-xlsxwriter>=3.0
 scipy>=1.7
 python-dateutil>=2.8
 # Prophet 可选（concen_detector 已 try/except 保护，缺失时跳过时序检测）
