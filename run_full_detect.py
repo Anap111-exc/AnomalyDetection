@@ -42,7 +42,7 @@ def locate_data_file():
 # 文本数值的解析统一交给 data_process（去千分位逗号 + "万"×10000 + 容错转数值），全流程保持兼容。
 FULL_DTYPE = {
     'order_id': 'str', 'order_no': 'str', 'ord_item_id': 'str',
-    'sku_code': 'category', 'sku_name': 'category',
+    'sku_code': 'category', 'stnd_sku_code': 'category', 'sku_name': 'category',
     'one_cat_name': 'category', 'two_cat_name': 'category',
     'three_cat_name': 'category', 'four_cat_name': 'category',
     'sup_short_name': 'category', 'company_name': 'category', 'store_name': 'category',
@@ -79,7 +79,7 @@ out_full = os.path.join(RESULT_ROOT, "全品类-全量标注.xlsx")
 cols = [c for c in ["order_id", "order_no", "ord_item_id", "submit_time",
         "smtr_name", "thd_dept_short_name", "sec_dept_short_name", "sup_short_name",
         "consigner_name", "rec_address", "sku_name", "proj_name", "four_cat_name",
-        "sku_code", "confidence_interval", "deviation",
+        "sku_code", "stnd_sku_code", "confidence_interval", "deviation",
         "tax_price", "pur_qty", "sub_ttl",
         "anomaly_type", "risk_level",
         "price_type", "qty_type", "split_type", "concen_type"] if c in df_all.columns]
