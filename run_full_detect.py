@@ -83,7 +83,9 @@ cols = [c for c in ["order_id", "order_no", "ord_item_id", "submit_time",
         "tax_price", "pur_qty", "sub_ttl",
         "anomaly_type", "risk_level",
         "price_type", "qty_type", "split_type", "concen_type"] if c in df_all.columns]
-df_all[cols].to_excel(out_full, index=False)
+# 大文件用 xlsxwriter 的 constant_memory 流式写盘，避免 openpyxl 在 45 万行时内存爆掉
+df_all.to_excel(out_full, columns=cols, index=False, engine="xlsxwriter",
+                engine_kwargs={"options": {"constant_memory": True}})
 print(f"输出: {out_full} | 总{len(df_all)}行 异常{(df_all['risk_level']=='异常').sum()}行", flush=True)
 
 summ = df_all[df_all["risk_level"] == "异常"].groupby(COL_FOUR_CAT)["anomaly_type"] \
