@@ -166,6 +166,11 @@ def _detect_prophet_dbscan(df):
     qty_anom = _dbscan_quantity_anomaly(df)
 
     print(f"      Prophet价格异常: {price_anom.sum()} 行", flush=True)
+    # 倒V过滤：Prophet 价格异常须"先涨后回落"（复用高价聚量的同一函数，窗边行为与聚量完全一致）
+    _raw_prophet = int(price_anom.sum())
+    price_anom = price_anom & _inverted_v_mask(df, price_anom)
+    if _raw_prophet:
+        print(f"      Prophet价格异常倒V过滤: {_raw_prophet} 行 -> 保留 {int(price_anom.sum())} 行", flush=True)
     print(f"      DBSCAN数量异常: {qty_anom.sum()} 行", flush=True)
 
     # 数量异常信号 = 数量检测器(qty_score>=80) ∪ DBSCAN聚类
