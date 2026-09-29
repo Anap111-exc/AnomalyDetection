@@ -8,6 +8,9 @@ __pycache__/
 *.pyc
 *.pyo
 
+# 运行时进程文件
+*.pid
+
 # 虚拟环境/依赖
 .venv/
 venv/
